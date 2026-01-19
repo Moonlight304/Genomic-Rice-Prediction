@@ -1,0 +1,20 @@
+========================================
+   Subpopulation Counts in Your Data
+========================================
+SUBPOPULATION
+trop       253
+temp       118
+indx       117
+ind3       116
+subtrop     97
+ind2        80
+ind1A       61
+aus         59
+japx        29
+admix       28
+aro         27
+ind1B       26
+Name: count, dtype: int64
+
+---
+Total samples found in metadata: 1011

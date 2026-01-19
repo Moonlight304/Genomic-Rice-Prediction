@@ -1,0 +1,12 @@
+Web/client/node_modules
+Web/server/node_modules
+Web/fastAPI/venv
+Web/fastAPI/organic.carbon_usda.6a1c_m_250m_b10cm_19500101_20171231_go_epsg.4326_v0.2.tif
+Web/fastAPI/ph.h2o_usda.4c1a2a_m_250m_b10cm_19500101_20171231_go_epsg.4326_v0.2.tif
+
+ML/venv
+ML/datasets
+ML/kaggle_dataset
+ML/plink
+ML/ind1a
+ML/ind1a_plink

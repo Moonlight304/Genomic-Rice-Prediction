@@ -1,0 +1,4 @@
+Sample_ID,Notes
+TEST_SAMPLE_001,This file has no SNPs
+TEST_SAMPLE_002,The model should impute everything
+TEST_SAMPLE_003,Prediction should be the average

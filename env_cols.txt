@@ -1,0 +1,10 @@
+E_avg_temp
+E_max_temp
+E_total_rain_mm
+E_soil_ph
+E_soil_nitrogen
+E_solar_radiation
+E_humidity_perc
+E_soil_moisture
+E_co2_ppm
+E_o2_perc

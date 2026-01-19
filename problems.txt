@@ -1,0 +1,8 @@
+To get the appropriate ASSAY ID of the user's crop
+Can we mail IRRI for the location and date of the samples grown
+Other evaluation metrics
+
+
+------ CURRENT -------
+need to get the user to upload the SNP data and extract our required SNP markers
+frontend

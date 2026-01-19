@@ -1,0 +1,15 @@
+1.  Ridge Regression	G-only (All 4,706 features) =============== 0.6185	A good, fast baseline.
+2.  Stacking (Ridge+XGB)	G-only (Top 1,000 features)	=========== 0.6274	More complex, but performed worse.
+3.  XGBoost (Elite)	G-only (Top 1,000 features)	=================== 0.6623  BEST AND MOST USEFUL MODEL.
+4.  XGBoost (Elite)	G (All) + 10 E-cols (Top 1,000) ===============	0.6610	Still worse than the pure G-only model.
+5.  XGBoost (Elite)	G (All) + 10 E-cols + 11 P-cols (Top 1,000) ===	0.6833	Highest score, but not a useful model (requires "P" as input).
+6.  XGBoost (Tuned)	G-only (All 4,706 features)	=================== 0.6297	Better, but likely confused by noise.
+7.  XGBoost (Tuned)	G (All) + 10 fake E-cols	=================== 0.6243	Proved fake "E" data hurts the score.
+8.  XGBoost (Tuned)	G (All) + 10 E-cols + 11 P-cols	=============== 0.6429	Proved the 11 P-cols aren't very predictive.
+9.  XGBoost (PCA)	G (PCA) + 10 E-cols + 11 P-cols	=============== 0.5730	Proved PCA was the wrong tool.
+10.	CatBoost G-only (Top 1,000)	=================================== 0.6664	Breakthrough. Beat the single XGBoost model.
+11.	CatBoost + LightGBM	G-only (Top 1,000)	======================= 0.6664	Breakthrough. Beat the single XGBoost model.
+12.	XGBoost + RF + LightGBM	G-only (Top 1,000)	=================== 0.6653	"Weak Link" Effect. Random Forest dragged down the average.
+13.	XGBoost (Manual CV)	G-only (Top 1,000)	======================= 0.6707	King of Single Models. Beat CatBoost & LGBM in a fair fight.
+14.	XGBoost + LightGBM	G-only (Top 1,000)	======================= 0.6747	The G-Only Champion. Averaging the two best models.
+15.	XGBoost + LightGBM	G + E (Top 1,000)	======================= 0.6755	GRAND CHAMPION. Robust, handles E-data, highest valid score.

@@ -1,0 +1,13 @@
+Last updated: 21 June 2024
+Created: 6 May 2014
+    https://www.genesys-pgr.org/a/42d9f4da-3b16-4c6f-8a06-3668ba145f14
+
+
+Cite dataset 
+Orhobor, Oghenejokpeme; Alexandrov, Nickolai; Chebotarov, Dmytro; Kretzschmar, Tobias; McNally, Kenneth; Sanciangco, Millicent; King, Ross (2018), “Rice genotype and phenotype data.”, The University of Manchester, V1, doi: 10.17632/sr8zzsrpcs.1
+
+Env Data (SLOW!)
+https://files.isric.org/soilgrids/latest/data/
+
+open land map database
+https://stac.openlandmap.org/?.language=en
