@@ -6,8 +6,6 @@ import numpy as np
 import os
 import json
 import logging
-# --- CHANGED IMPORT ---
-# We now import the generic loader that gets both pH and Nitrogen
 from soil_loader import get_soil_values 
 
 # Configure logging
@@ -81,7 +79,7 @@ async def predict(
                 print(f"✅ [PYTHON] Using MAP Nitrogen (from Carbon): {real_soil['E_soil_nitrogen']}")
             
         except Exception as e:
-            print(f"❌ [PYTHON] Soil Lookup Error: {e}")
+            print(f"[PYTHON] Soil Lookup Error: {e}")
 
     # 3. Read Genetic Data
     try:
@@ -101,7 +99,7 @@ async def predict(
     required_snps = [c for c in training_columns if c not in env_dict.keys()]
     present_snps = [c for c in df.columns if c in required_snps]
     overlap_ratio = len(present_snps) / len(required_snps) if len(required_snps) > 0 else 0
-    print(f"ℹ️ Feature Overlap: {overlap_ratio:.1%}")
+    print(f"Feature Overlap: {overlap_ratio:.1%}")
 
     # 6. Inject Env Data
     for col, value in env_dict.items():
@@ -123,7 +121,7 @@ async def predict(
         results.append({
             "sample_id": sample_ids[i],
             "predicted_days": round(float(pred), 2),
-            "status": "High Confidence" if overlap_ratio > 0.5 else "Low Confidence"
+            "confidence": "High Confidence" if overlap_ratio > 0.5 else "Low Confidence"
         })
 
     return results

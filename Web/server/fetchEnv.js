@@ -99,7 +99,8 @@ async function getEnvironmentalData(lat, lon) {
         let temp_factor = 1.0;
         if (result.E_avg_temp > 20 && result.E_avg_temp < 35) {
             temp_factor = 1.2; // Optimal decomposition heat
-        } else {
+        }
+        else {
             temp_factor = 0.8; // Too cold or too hot slows microbes
         }
 
@@ -108,7 +109,7 @@ async function getEnvironmentalData(lat, lon) {
         // Clamp to realistic limits (0.5 to 4.0 g/kg)
         result.E_soil_nitrogen = parseFloat(Math.min(Math.max(estimated_n, 0.5), 4.0).toFixed(2));
 
-        console.log(`✅ [GeoAPI] Weather Ready. Calc pH: ${result.E_soil_ph}, Smart Calc N: ${result.E_soil_nitrogen}`);
+        console.log(`[GeoAPI] Weather Ready. Calc pH: ${result.E_soil_ph}, Smart Calc N: ${result.E_soil_nitrogen}`);
 
         // --- 7. SAVE TO CACHE ---
         weatherCache.set(cacheKey, {
@@ -116,9 +117,9 @@ async function getEnvironmentalData(lat, lon) {
             data: result
         });
 
-    } catch (error) {
-        console.error("⚠️ [GeoAPI] Weather API Failed:", error.message);
-        // We simply return the 'result' object with defaults defined at top
+    }
+    catch (error) {
+        console.error("[GeoAPI] Weather API Failed:", error.message);
     }
 
     return result;
