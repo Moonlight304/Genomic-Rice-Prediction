@@ -14,6 +14,12 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    predictions: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Prediction'
+        }
+    ],
     createdAt: {
         type: Date,
         default: Date.now

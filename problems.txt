@@ -4,5 +4,5 @@ Other evaluation metrics
 
 
 ------ CURRENT -------
-need to get the user to upload the SNP data and extract our required SNP markers
-frontend
+forgot password logic
+favicon

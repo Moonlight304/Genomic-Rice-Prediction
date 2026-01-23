@@ -19,7 +19,7 @@ const upload = multer({ dest: "uploads/" });
 
 // --- MIDDLEWARE ---
 app.use(cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: [process.env.CLIENT_URL],
     credentials: true
 }));
 app.use(express.json());
@@ -168,7 +168,11 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
             }
 
             console.log(newPrediction);
-            await Prediction.create(newPrediction);
+            const savedPrediction = await Prediction.create(newPrediction);
+            
+            await User.findByIdAndUpdate(req.user.id, { 
+                $push: { predictions: savedPrediction._id } 
+            });
 
             console.log(`History Saved for User: ${req.user.id}`);
         }

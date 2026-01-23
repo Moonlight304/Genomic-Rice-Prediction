@@ -18,11 +18,10 @@ const sum = (arr) => arr && arr.length > 0 ? arr.reduce((a, b) => a + b, 0) : 0;
 
 async function getEnvironmentalData(lat, lon) {
     // Default to India (Rice Belt) if coords are missing
-    const validLat = lat || 20.59;
-    const validLon = lon || 78.96;
+    const validLat = lat;
+    const validLon = lon;
 
     // --- 3. CACHE CHECK (Speed Optimization) ---
-    // Create a unique key for this location (rounded to 2 decimals)
     const cacheKey = `${parseFloat(validLat).toFixed(2)}_${parseFloat(validLon).toFixed(2)}`;
     
     // If we have data less than 10 minutes old, return it instantly!
@@ -41,11 +40,16 @@ async function getEnvironmentalData(lat, lon) {
 
     // Default Fallbacks (used if API completely fails)
     let result = {
-        E_avg_temp: 28.5, E_max_temp: 34.2, E_total_rain_mm: 1200, 
-        E_solar_radiation: 18.5, E_humidity_perc: 82.0, E_soil_moisture: 0.35,
-        E_soil_ph: 6.5,      // Python will overwrite this with Real Map data
-        E_soil_nitrogen: 2.1,// Calculated below
-        E_co2_ppm: 421.0, E_o2_perc: 20.95
+        E_avg_temp: 0,
+        E_max_temp: 0,
+        E_total_rain_mm: 0,
+        E_solar_radiation: 0,
+        E_humidity_perc: 0,
+        E_soil_moisture: 0,
+        E_soil_ph: 7.0,
+        E_soil_nitrogen: 0, 
+        E_co2_ppm: 421.0, 
+        E_o2_perc: 20.95
     };
 
     try {

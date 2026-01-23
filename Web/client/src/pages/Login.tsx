@@ -20,7 +20,7 @@ const Login = () => {
         try {
             const res = await API.post('/login', { email, password });
             login(res.data.accessToken, res.data.user);
-            navigate('/');
+            navigate('/predict');
         } catch (err: any) {
             setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
         } finally {
@@ -61,10 +61,7 @@ const Login = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex justify-between items-center ml-1">
-                            <label className="text-sm font-medium text-slate-700">Password</label>
-                            <a href="#" className="text-xs font-medium text-emerald-600 hover:text-emerald-700">Forgot password?</a>
-                        </div>
+                        <label className="text-sm font-medium text-slate-700">Password</label>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Lock className="h-5 w-5 text-slate-400" />
@@ -77,6 +74,10 @@ const Login = () => {
                                 placeholder="••••••••"
                                 required
                             />
+                        </div>
+
+                        <div className="flex justify-end items-center ml-1">
+                            <a href="#" className="text-xs font-medium text-emerald-600 hover:text-emerald-700">Forgot password?</a>
                         </div>
                     </div>
 

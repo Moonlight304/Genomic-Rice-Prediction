@@ -1,9 +1,17 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Leaf, Database, Activity, Cpu } from 'lucide-react';
 
 const Home = () => {
-    const { user } = useAuth();
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+        return null;
+    }
+
+    if (user) {
+        return <Navigate to="/predict" replace />;
+    }
 
     return (
         <div className="min-h-[calc(100vh-4rem)] flex flex-col">
