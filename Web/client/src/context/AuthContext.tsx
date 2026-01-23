@@ -13,6 +13,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (token: string, userData: User) => void;
     logout: () => void;
+    updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +21,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    const updateUser = (userData: User) => {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+    };
 
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
@@ -41,22 +47,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = async () => {
         try {
             await API.post('/logout');
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error("Logout failed", error);
         }
+        setUser(null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
-        setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{
-            user,
-            isAuthenticated: !!user,
-            isLoading,
-            login,
-            logout
-        }}>
+        <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, updateUser }}>
             {children}
         </AuthContext.Provider>
     );

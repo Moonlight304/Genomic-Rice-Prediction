@@ -195,32 +195,32 @@ const Predict = () => {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {results.map((result, idx) => {
                                             const isUnsuitable = result.confidence.includes("Unsuitable");
-                                            
+
                                             return (
-                                            <tr key={idx} className={`transition-colors ${isUnsuitable ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-slate-50'}`}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-slate-100">{result.sample_id}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold border-r border-slate-100">
-                                                    {isUnsuitable ? (
-                                                        <span className="text-red-700 flex items-center gap-1.5">
-                                                            Growth Unviable
+                                                <tr key={idx} className={`transition-colors ${isUnsuitable ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-slate-50'}`}>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-slate-100">{result.sample_id}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold border-r border-slate-100">
+                                                        {isUnsuitable ? (
+                                                            <span className="text-red-700 flex items-center gap-1.5">
+                                                                Growth Unviable
+                                                            </span>
+                                                        ) : (
+                                                            `${result.predicted_days} Days`
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnsuitable
+                                                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                                                : result.confidence === 'High Confidence'
+                                                                    ? 'bg-green-100 text-green-800'
+                                                                    : 'bg-yellow-100 text-yellow-800'
+                                                            }`}>
+                                                            {result.confidence}
                                                         </span>
-                                                    ) : (
-                                                        `${result.predicted_days} Days`
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                        isUnsuitable 
-                                                            ? 'bg-red-100 text-red-800 border border-red-200'
-                                                            : result.confidence === 'High Confidence'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-yellow-100 text-yellow-800'
-                                                        }`}>
-                                                        {result.confidence}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        )})}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

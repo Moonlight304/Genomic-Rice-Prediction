@@ -85,7 +85,7 @@ app.post('/login', async (req, res) => {
 
         res.json({
             accessToken,
-            user: { id: user._id, name: user.name }
+            user: { id: user._id, name: user.name, email: user.email }
         });
 
     }
@@ -117,9 +117,67 @@ app.post('/logout', (req, res) => {
     res.json({ message: "Logged out" });
 });
 
+// 5. GET HISTORY
+app.get('/history', authMiddleware, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+        const history = await Prediction.find({ user: req.user.id })
+            .sort({ timestamp: -1 })
+
+        res.json(history);
+    }
+    catch (err) {
+        res.status(500).json({ error: "Could not fetch history" });
+    }
+});
+
+// 6. UPDATE PROFILE
+app.put('/profile/update', authMiddleware, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    const { name } = req.body;
+    try {
+        const user = await User.findByIdAndUpdate(req.user.id, { name }, { new: true });
+        res.json({ user: { id: user._id, name: user.name } });
+    } catch (err) {
+        res.status(500).json({ error: "Could not update profile" });
+    }
+});
+
+// 7. CHANGE PASSWORD
+app.put('/profile/password', authMiddleware, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    const { currentPassword, newPassword } = req.body;
+    try {
+        const user = await User.findById(req.user.id);
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ error: "Incorrect current password" });
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+        
+        res.json({ message: "Password updated successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Could not change password" });
+    }
+});
+
+// 8. DELETE ACCOUNT
+app.delete('/profile', authMiddleware, async (req, res) => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    try {
+        await Prediction.deleteMany({ user: req.user.id });
+        await User.findByIdAndDelete(req.user.id);
+        
+        res.clearCookie('refreshToken');
+        res.json({ message: "Account deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Could not delete account" });
+    }
+});
 
 // CORE PREDICTION ROUTE
-
 app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -192,21 +250,6 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
             error: "Prediction failed",
             details: err.response?.data || err.message
         });
-    }
-});
-
-// 5. GET HISTORY
-app.get('/history', authMiddleware, async (req, res) => {
-    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-        const history = await Prediction.find({ user: req.user.id })
-            .sort({ timestamp: -1 })
-
-        res.json(history);
-    }
-    catch (err) {
-        res.status(500).json({ error: "Could not fetch history" });
     }
 });
 
