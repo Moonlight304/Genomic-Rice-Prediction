@@ -9,6 +9,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const User = require('./models/User');
 const Prediction = require('./models/Prediction');
 const { getEnvironmentalData } = require("./fetchEnv");
@@ -174,6 +176,112 @@ app.delete('/profile', authMiddleware, async (req, res) => {
         res.json({ message: "Account deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: "Could not delete account" });
+    }
+});
+
+// 9. FORGOT PASSWORD
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+app.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const token = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        await user.save();
+
+        const resetLink = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${token}`;
+
+        const htmlContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 40px 0;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; border: 1px solid #e2e8f0;">
+                <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">AgriGenomics</h1>
+                </div>
+                <div style="padding: 40px 30px;">
+                    <h2 style="color: #1e293b; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 600;">Reset Your Password</h2>
+                    <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+                        Hello, we received a request to reset the password for your account. If you didn't make this request, you can safely ignore this email.
+                    </p>
+                    <div style="text-align: center; margin: 32px 0;">
+                        <a href="${resetLink}" style="background-color: #059669; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.2);">
+                            Reset Password
+                        </a>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin-top: 32px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                        If the button doesn't work, copy and paste this link into your browser:<br>
+                        <a href="${resetLink}" style="color: #059669; text-decoration: none; word-break: break-all;">${resetLink}</a>
+                    </p>
+                </div>
+                <div style="background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0;">
+                    &copy; ${new Date().getFullYear()} AgriGenomics Project. All rights reserved.
+                </div>
+            </div>
+        </div>
+        `;
+
+        const mailOptions = {
+            from: `"AgriGenomics Security" <${process.env.EMAIL_USER}>`,
+            to: user.email,
+            subject: 'Reset your AgriGenomics Password',
+            text: `Reset your password here: ${resetLink}`, // Fallback for plain text clients
+            html: htmlContent
+        };
+
+        console.log(`Reset Link for ${email}: ${resetLink}`);
+
+        transporter.sendMail(mailOptions, (err) => {
+            if (err) {
+                console.log("\n---------------------------------------------------");
+                console.log("NOTE: Email delivery failed. (Expected in Dev Mode)");
+                console.log("Reason: " + err.message.split('\n')[0]);
+                console.log(">> USE THIS LINK TO RESET PASSWORD: <<");
+                console.log(resetLink);
+                console.log("---------------------------------------------------\n");
+                
+                // Return success for dev workflow
+                return res.json({ message: "Development: Check server logs for link" });
+            }
+            res.json({ message: "Password reset email sent" });
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+// 10. RESET PASSWORD
+app.post('/reset-password/:token', async (req, res) => {
+    try {
+        const user = await User.findOne({ 
+            resetPasswordToken: req.params.token, 
+            resetPasswordExpires: { $gt: Date.now() } 
+        });
+
+        if (!user) return res.status(400).json({ error: "Password reset token is invalid or has expired" });
+
+        const { password } = req.body;
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(password, salt);
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpires = undefined;
+            await user.save();
+            res.json({ message: "Password updated successfully" });
+        } else {
+             res.status(400).json({ error: "Password is required" });
+        }
+    } catch (err) {
+         res.status(500).json({ error: "Server error" });
     }
 });
 
