@@ -1,5 +1,6 @@
 const express = require("express");
 const multer = require("multer");
+const cors = require("cors");
 const axios = require("axios");
 const dotenv = require('dotenv').config();
 const FormData = require("form-data");
@@ -17,6 +18,10 @@ const app = express();
 const upload = multer({ dest: "uploads/" });
 
 // --- MIDDLEWARE ---
+app.use(cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -41,6 +46,9 @@ app.post('/register', async (req, res) => {
 
         await User.create({ name, email, password: hashedPassword });
 
+        console.log("New Use Registered!");
+        console.log({ email, name });
+        
         res.json({ message: "User created successfully" });
     }
     catch (err) {
@@ -71,6 +79,9 @@ app.post('/login', async (req, res) => {
             path: '/',
             maxAge: 14 * 24 * 60 * 60 * 1000
         });
+
+        console.log("New Use Login!");
+        console.log({ email: user.email, username: user.name });
 
         res.json({
             accessToken,
