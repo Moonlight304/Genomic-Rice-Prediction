@@ -1,6 +1,28 @@
 Web/client/node_modules
 Web/client/.env
 
+Web/client/logs
+Web/client/*.log
+Web/client/npm-debug.log*
+Web/client/yarn-debug.log*
+Web/client/yarn-error.log*
+Web/client/pnpm-debug.log*
+Web/client/lerna-debug.log*
+
+Web/client/dist
+Web/client/dist-ssr
+Web/client/*.local
+Web/client/.vscode/*
+Web/client/!.vscode/extensions.json
+Web/client/.idea
+Web/client/.DS_Store
+Web/client/*.suo
+Web/client/*.ntvs*
+Web/client/*.njsproj
+Web/client/*.sln
+Web/client/*.sw?
+
+
 Web/server/node_modules
 Web/server/.env
 
