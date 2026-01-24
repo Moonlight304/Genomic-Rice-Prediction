@@ -48,7 +48,7 @@ const Home = () => {
                                 to="/register"
                                 className="inline-flex items-center px-8 py-3 text-lg font-medium text-white bg-emerald-600 rounded-full hover:bg-emerald-700 shadow-lg shadow-emerald-200 hover:shadow-xl transition-all hover:-translate-y-0.5"
                             >
-                                Get Started Free
+                                Get Started for Free
                                 <ArrowRight className="ml-2 h-5 w-5" />
                             </Link>
                         )}

@@ -16,29 +16,41 @@ const weatherCache = new Map();
 const mean = (arr) => arr && arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 const sum = (arr) => arr && arr.length > 0 ? arr.reduce((a, b) => a + b, 0) : 0;
 
-async function getEnvironmentalData(lat, lon) {
-    // Default to India (Rice Belt) if coords are missing
+function getQueryDates(month) {
+    const dates = [];
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    for (let i = 1; i <= 5; i++) {
+        const year = currentYear - i;
+        const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+        dates.push({ start_date: startDate, end_date: endDate });
+    }
+    return dates;
+}
+
+async function getEnvironmentalData(lat, lon, month = 7, irrigation = false) {
+    // --- 1. CONFIGURATION ---
     const validLat = lat;
     const validLon = lon;
 
-    // --- 3. CACHE CHECK (Speed Optimization) ---
-    const cacheKey = `${parseFloat(validLat).toFixed(2)}_${parseFloat(validLon).toFixed(2)}`;
+    // --- 3. CACHE CHECK ---
+    const cacheKey = `${parseFloat(validLat).toFixed(2)}_${parseFloat(validLon).toFixed(2)}_${month}_${irrigation}`;
     
-    // If we have data less than 10 minutes old, return it instantly!
     if (weatherCache.has(cacheKey)) {
         const cached = weatherCache.get(cacheKey);
         const age = Date.now() - cached.timestamp;
         
-        // 10 minutes = 600,000 ms
         if (age < 600000) { 
             console.log(`⚡ [GeoAPI] Serving Cached Data for ${cacheKey} (Instant)`);
             return cached.data;
         }
     }
 
-    console.log(`[GeoAPI] Fetching Fresh Weather for: ${validLat}, ${validLon}...`);
+    console.log(`[GeoAPI] Fetching Fresh Weather for: ${validLat}, ${validLon} (Month: ${month}, Irrig: ${irrigation})...`);
 
-    // Default Fallbacks (used if API completely fails)
     let result = {
         E_avg_temp: 0,
         E_max_temp: 0,
@@ -53,39 +65,65 @@ async function getEnvironmentalData(lat, lon) {
     };
 
     try {
-        // --- 4. FETCH WEATHER (Open-Meteo) ---
-        // Using "Last 30 Days" for speed and reliability
+        // --- 4. FETCH WEATHER ---
+        const dates = getQueryDates(month);
         const weatherUrl = `https://archive-api.open-meteo.com/v1/archive`;
         
-        const weatherRes = await axios.get(weatherUrl, { 
+        const requests = dates.map(date => axios.get(weatherUrl, { 
             params: {
                 latitude: validLat,
                 longitude: validLon,
-                start_date: '2023-11-01', // Static recent month for consistent demo results
-                end_date: '2023-11-30',
+                start_date: date.start_date,
+                end_date: date.end_date,
                 daily: 'temperature_2m_max,temperature_2m_mean,rain_sum,shortwave_radiation_sum',
                 hourly: 'relative_humidity_2m,soil_moisture_0_to_7cm'
             },
-            timeout: 10000, // 10s timeout
+            timeout: 10000, 
             httpAgent, 
             httpsAgent
+        }));
+
+        const responses = await Promise.all(requests);
+
+        // --- 5. AGGREGATE STATS ---
+        let total_temp_mean = 0;
+        let total_temp_max = 0;
+        let total_rain_monthly = 0;
+        let total_solar = 0;
+        let total_humidity = 0;
+        let total_soil_moisture = 0;
+
+        responses.forEach(res => {
+            const w = res.data;
+            total_temp_mean += mean(w.daily.temperature_2m_mean);
+            total_temp_max += Math.max(...w.daily.temperature_2m_max);
+            total_rain_monthly += sum(w.daily.rain_sum);
+            total_solar += mean(w.daily.shortwave_radiation_sum);
+            total_humidity += mean(w.hourly.relative_humidity_2m);
+            total_soil_moisture += mean(w.hourly.soil_moisture_0_to_7cm);
         });
 
-        const w = weatherRes.data;
+        const count = responses.length;
 
-        // --- 5. PARSE WEATHER ---
-        result.E_avg_temp = parseFloat(mean(w.daily.temperature_2m_mean).toFixed(2));
-        result.E_max_temp = parseFloat(Math.max(...w.daily.temperature_2m_max).toFixed(2));
+        result.E_avg_temp = parseFloat((total_temp_mean / count).toFixed(2));
+        result.E_max_temp = parseFloat((total_temp_max / count).toFixed(2));
         
-        // Estimate Annual Rain (Monthly * 12)
-        const monthly_rain = sum(w.daily.rain_sum);
-        result.E_total_rain_mm = parseFloat((monthly_rain * 12).toFixed(2));
-        
-        result.E_solar_radiation = parseFloat(mean(w.daily.shortwave_radiation_sum).toFixed(2));
-        result.E_humidity_perc = parseFloat(mean(w.hourly.relative_humidity_2m).toFixed(2));
-        result.E_soil_moisture = parseFloat(mean(w.hourly.soil_moisture_0_to_7cm).toFixed(2));
+        const avg_monthly_rain = total_rain_monthly / count;
+        let final_rain_value = avg_monthly_rain * 12;
 
-        // --- 6. CALCULATE SOIL PROXIES (Smart Fallbacks) ---
+        // --- IRRIGATION LOGIC ---
+        if (irrigation) {
+            console.log("[GeoAPI] Irrigation ON: Overriding Rain with Optimal Water (1500mm)");
+            final_rain_value = 1500;
+        }
+
+        result.E_total_rain_mm = parseFloat(final_rain_value.toFixed(2));
+        
+        result.E_solar_radiation = parseFloat((total_solar / count).toFixed(2));
+        result.E_humidity_perc = parseFloat((total_humidity / count).toFixed(2));
+        result.E_soil_moisture = parseFloat((total_soil_moisture / count).toFixed(2));
+
+        // --- 6. CALCULATE SOIL PROXIES ---
         
         // A. pH Algorithm (Python will likely overwrite this with the 1.7GB file)
         // More Rain = More Acidic (Lower pH)

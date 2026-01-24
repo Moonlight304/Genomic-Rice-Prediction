@@ -12,6 +12,8 @@ const Predict = () => {
     const [file, setFile] = useState<File | null>(null);
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
+    const [month, setMonth] = useState('7');
+    const [irrigation, setIrrigation] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [results, setResults] = useState<Result[]>([]);
@@ -43,6 +45,8 @@ const Predict = () => {
         formData.append('file', file);
         formData.append('latitude', latitude);
         formData.append('longitude', longitude);
+        formData.append('month', month);
+        formData.append('irrigation', irrigation.toString());
 
         try {
             const response = await API.post('/predict', formData, {
@@ -106,6 +110,56 @@ const Predict = () => {
                                     </div>
                                 </div>
                                 <p className="text-xs text-slate-500">Coordinates are used to retrieve precise soil and environmental data.</p>
+                            </div>
+
+                            {/* Agronomic Controls */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                    <BarChart3 className="h-5 w-5 text-emerald-600" />
+                                    <h2 className="text-lg font-semibold text-slate-800">Season & Management</h2>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">Sowing Month</label>
+                                        <select
+                                            value={month}
+                                            onChange={(e) => setMonth(e.target.value)}
+                                            className="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all custom-select"
+                                        >
+                                            <option value="6">June (Kharif)</option>
+                                            <option value="7">July (Kharif)</option>
+                                            <option value="11">November (Rabi)</option>
+                                            <option value="12">December (Rabi)</option>
+                                            <option value="1">January</option>
+                                            <option value="2">February</option>
+                                            <option value="3">March</option>
+                                            <option value="4">April</option>
+                                            <option value="5">May</option>
+                                            <option value="8">August</option>
+                                            <option value="9">September</option>
+                                            <option value="10">October</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-700">Irrigation Management</label>
+                                        <div 
+                                            onClick={() => setIrrigation(!irrigation)}
+                                            className={`flex items-center justify-between px-4 py-2.5 border rounded-xl cursor-pointer transition-all ${irrigation ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}
+                                        >
+                                            <span className={`text-sm ${irrigation ? 'text-emerald-700 font-semibold' : 'text-slate-600'}`}>
+                                                {irrigation ? 'Irrigation: Optimized' : 'Irrigation: Rainfed'}
+                                            </span>
+                                            <div className={`w-12 h-6 rounded-full p-1 transition-colors ${irrigation ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${irrigation ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    {irrigation 
+                                        ? "Simulating predicted yield with optimal water availability (1500mm)."
+                                        : "Simulating yield based on natural historical rainfall patterns (Last 5 Years avg)."}
+                                </p>
                             </div>
 
                             {/* File Upload Section */}
@@ -195,11 +249,16 @@ const Predict = () => {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {results.map((result, idx) => {
                                             const isUnsuitable = result.confidence.includes("Unsuitable");
+                                            const failureReason = isUnsuitable 
+                                                ? result.confidence.replace("Unsuitable Environment:", "").trim() 
+                                                : "";
 
                                             return (
                                                 <tr key={idx} className={`transition-colors ${isUnsuitable ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-slate-50'}`}>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-slate-100">{result.sample_id}</td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold border-r border-slate-100">
+                                                    <td className="px-6 py-6 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-slate-100 align-top">
+                                                        {result.sample_id}
+                                                    </td>
+                                                    <td className="px-6 py-6 whitespace-nowrap text-sm text-gray-900 font-bold border-r border-slate-100 align-top">
                                                         {isUnsuitable ? (
                                                             <span className="text-red-700 flex items-center gap-1.5">
                                                                 Growth Unviable
@@ -208,15 +267,27 @@ const Predict = () => {
                                                             `${result.predicted_days} Days`
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnsuitable
-                                                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                                    <td className="px-6 py-6 card-zoom">
+                                                        <div className={`inline-flex flex-col items-start px-4 py-3 rounded-xl border w-full max-w-sm transition-all ${isUnsuitable
+                                                                ? 'bg-red-50 text-red-800 border-red-100 shadow-sm shadow-red-100/50'
                                                                 : result.confidence === 'High Confidence'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : 'bg-yellow-100 text-yellow-800'
+                                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                                                    : 'bg-amber-50 text-amber-800 border-amber-100'
                                                             }`}>
-                                                            {result.confidence}
-                                                        </span>
+                                                            {isUnsuitable ? (
+                                                                <>
+                                                                    <div className="flex items-center gap-2 mb-2 border-b border-red-200/60 pb-2 w-full">
+                                                                        <AlertCircle className="w-4 h-4 text-red-600" />
+                                                                        <span className="font-bold text-red-700 text-xs uppercase tracking-wider">Environment Failure</span>
+                                                                    </div>
+                                                                    <p className="text-sm text-red-800/90 leading-relaxed font-medium">
+                                                                        {failureReason || "Environmental conditions (Rainfall, Temperature, or Soil Nitrogen) are critical for growth."}
+                                                                    </p>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-sm font-medium">{result.confidence}</span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             )

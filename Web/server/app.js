@@ -291,15 +291,17 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
 
     const lat = req.body.latitude;
     const lon = req.body.longitude;
+    const month = parseInt(req.body.month) || 7;
+    const irrigation = req.body.irrigation === 'true';
 
     try {
-        console.log(`[Node] Processing Request for Loc: ${lat}, ${lon}`);
+        console.log(`[Node] Processing Request for Loc: ${lat}, ${lon}, Month: ${month}, Irrig: ${irrigation}`);
 
-        // 1. Fetch Environment (Weather + Calculated Fallbacks)
-        const envData = await getEnvironmentalData(lat, lon);
+        // --- 1. FETCH ENVIRONMENT ---
+        const envData = await getEnvironmentalData(lat, lon, month, irrigation);
         console.log("[Node] Env Data Ready.");
 
-        // 2. Prepare Payload for Python
+        // --- 2. PREPARE PAYLOAD ---
         const form = new FormData();
         form.append("file", fs.createReadStream(req.file.path), req.file.originalname);
         form.append("env_data", JSON.stringify(envData));
@@ -307,7 +309,7 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
         if (lat) form.append("latitude", lat.toString());
         if (lon) form.append("longitude", lon.toString());
 
-        // 3. Call Python Engine
+        // --- 3. CALL PYTHON ENGINE ---
         console.log("[Node] Forwarding to Python Engine...");
         const response = await axios.post(
             "http://localhost:8000/predict",
