@@ -88,6 +88,8 @@ async def predict(
         raise HTTPException(status_code=400, detail="Invalid JSON in env_data")
 
     # 2. Intelligent Soil Lookup (Hybrid Approach)
+    is_marine_location = False
+
     if latitude and longitude:
         try:
             lat_val = float(latitude)
@@ -104,13 +106,18 @@ async def predict(
                 soil_moisture=current_moisture
             )
             
-            if real_soil["E_soil_ph"] is not None:
-                env_dict["E_soil_ph"] = real_soil["E_soil_ph"]
-                print(f"[PYTHON] Using MAP pH: {real_soil['E_soil_ph']}")
-            
-            if real_soil["E_soil_nitrogen"] is not None:
-                env_dict["E_soil_nitrogen"] = real_soil["E_soil_nitrogen"]
-                print(f"[PYTHON] Using MAP Nitrogen: {real_soil['E_soil_nitrogen']}")
+            if real_soil is None:
+                # Returned None means NO soil data found -> Ocean
+                is_marine_location = True
+                print(f"[PYTHON] MARINE ALERT: Location {lat_val}, {lon_val} is in the Ocean.")
+            else:
+                if real_soil["E_soil_ph"] is not None:
+                    env_dict["E_soil_ph"] = real_soil["E_soil_ph"]
+                    print(f"[PYTHON] Using MAP pH: {real_soil['E_soil_ph']}")
+                
+                if real_soil["E_soil_nitrogen"] is not None:
+                    env_dict["E_soil_nitrogen"] = real_soil["E_soil_nitrogen"]
+                    print(f"[PYTHON] Using MAP Nitrogen: {real_soil['E_soil_nitrogen']}")
             
         except Exception as e:
             logger.error(f"Soil Lookup Error: {e}")
@@ -140,7 +147,11 @@ async def predict(
         df[col] = value
 
     # 7. Biological Viability Check
-    is_viable, viability_reason = check_viability(env_dict)
+    if is_marine_location:
+        is_viable = False
+        viability_reason = "Location detected in Ocean/Water Body. Rice cannot be grown."
+    else:
+        is_viable, viability_reason = check_viability(env_dict)
     
     if not is_viable:
         print(f"[BIO-CHECK] Environment Unsuitable: {viability_reason}")

@@ -17,42 +17,46 @@ SOC_PATH = "organic.carbon_usda.6a1c_m_250m_b10cm_19500101_20171231_go_epsg.4326
 def get_soil_values(lat, lon, base_dir, annual_rain_mm=1200, soil_moisture=0.35):
     """
     Hybrid Loader:
-    - pH: Direct from Map (Scale: 0.1).
-    - Nitrogen: Derived from Carbon Map (Scale: 0.5 * 0.1).
+    - Checks global soil maps.
+    - If NO data is found in maps, assumes Ocean/Water body and returns None.
+    - If One map has data, uses fallbacks for the other.
     """
     results = {
-        "E_soil_ph": 6.5,
-        "E_soil_nitrogen": 2.1 
+        "E_soil_ph": None,
+        "E_soil_nitrogen": None 
     }
     
     ph_file = os.path.join(base_dir, PH_PATH)
     soc_file = os.path.join(base_dir, SOC_PATH)
 
-    # --- 1. GET pH ---
     ph_raw = _read_pixel(ph_file, lat, lon)
+    soc_raw = _read_pixel(soc_file, lat, lon)
+
+    # --- 1. MARINE / NO-DATA CHECK ---
+    # If both global maps return NoData, we are 99% sure it's not arable land.
+    if ph_raw is None and soc_raw is None:
+        logger.warning(f"[Map] No soil data for {lat}, {lon}. Likely Water Body.")
+        return None
+
+    # --- 2. GET pH ---
     if ph_raw is not None:
         results["E_soil_ph"] = ph_raw / 10.0
         logger.info(f"[Map] pH Found: {results['E_soil_ph']}")
     else:
-        # Fallback Calculation
+        # Partial Fallback (Map hole on land)
         est_ph = 7.5 - (annual_rain_mm / 2000.0)
         results["E_soil_ph"] = round(max(4.5, min(8.5, est_ph)), 2)
 
-    # --- 2. GET NITROGEN (Via Carbon) ---
-    soc_raw = _read_pixel(soc_file, lat, lon)
-    
+    # --- 3. GET NITROGEN ---
     if soc_raw is not None:
         carbon_g_kg = soc_raw * 5.0
-        
         nitrogen_g_kg = carbon_g_kg / 10.0
-        
         results["E_soil_nitrogen"] = round(nitrogen_g_kg, 2)
-        logger.info(f"[Map] Raw: {soc_raw} -> Carbon: {carbon_g_kg} g/kg -> N: {results['E_soil_nitrogen']} g/kg")
-        
+        logger.info(f"[Map] Carbon Found -> N: {results['E_soil_nitrogen']} g/kg")
     else:
+        # Partial Fallback
         est_n = 1.0 + (soil_moisture * 5.0)
         results["E_soil_nitrogen"] = round(max(0.5, min(4.0, est_n)), 2)
-        logger.warning(f"[Map] Carbon map missing. Calculated N: {results['E_soil_nitrogen']}")
 
     return results
 

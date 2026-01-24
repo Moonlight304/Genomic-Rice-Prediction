@@ -1,6 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import API from '../api/axios';
-import { Upload, MapPin, Loader2, AlertCircle, FileText, CheckCircle, BarChart3 } from 'lucide-react';
+import { Upload, MapPin, Loader2, AlertCircle, FileText, CheckCircle, BarChart3, Map as MapIcon, X, Download } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+interface EnvData {
+    E_avg_temp: number;
+    E_max_temp: number;
+    E_total_rain_mm: number;
+    E_solar_radiation: number;
+    E_humidity_perc: number;
+    E_soil_moisture: number;
+    E_soil_ph: number | null;
+    E_soil_nitrogen: number | null;
+}
 
 interface Result {
     sample_id: string;
@@ -8,16 +36,52 @@ interface Result {
     confidence: string;
 }
 
+const LocationMarker = ({ 
+    position, 
+    setPosition 
+}: { 
+    position: { lat: number; lng: number } | null, 
+    setPosition: (lat: number, lng: number) => void 
+}) => {
+    const map = useMapEvents({
+        click(e) {
+            setPosition(e.latlng.lat, e.latlng.lng);
+            map.flyTo(e.latlng, map.getZoom());
+        },
+    });
+
+    useEffect(() => {
+        if (position) {
+            map.flyTo([position.lat, position.lng], map.getZoom());
+        }
+    }, [position?.lat, position?.lng, map]);
+
+    return position ? <Marker position={[position.lat, position.lng]} /> : null;
+};
+
 const Predict = () => {
     const [file, setFile] = useState<File | null>(null);
     const [latitude, setLatitude] = useState('');
     const [longitude, setLongitude] = useState('');
+    const [showMap, setShowMap] = useState(false);
     const [month, setMonth] = useState('7');
     const [irrigation, setIrrigation] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [results, setResults] = useState<Result[]>([]);
+    const [envData, setEnvData] = useState<EnvData | null>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
+
+    const handleMapUpdate = (lat: number, lng: number) => {
+        setLatitude(lat.toFixed(4));
+        setLongitude(lng.toFixed(4));
+    };
+
+    const getMapCenter = (): [number, number] => {
+        const lat = parseFloat(latitude);
+        const lng = parseFloat(longitude);
+        return (!isNaN(lat) && !isNaN(lng)) ? [lat, lng] : [20.5937, 78.9629]; // Default to India
+    };
 
     useEffect(() => {
         if (results.length > 0 && resultsRef.current) {
@@ -54,13 +118,177 @@ const Predict = () => {
                     'Content-Type': 'multipart/form-data',
                 },
             });
-            setResults(response.data);
+            if (Array.isArray(response.data)) {
+                setResults(response.data);
+                setEnvData(null);
+            } else {
+                setResults(response.data.predictions);
+                setEnvData(response.data.environmental_data);
+            }
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.error || 'Prediction failed. Please try again.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const generatePDF = async () => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const timestamp = new Date().toLocaleString();
+        
+        // 1. BRANDED HEADER
+        doc.setFillColor(16, 185, 129); // Emerald-600
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(22);
+        doc.text("Agronomic Analysis Report", 14, 25); // Removed Project 14A
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(timestamp, pageWidth - 14, 25, { align: "right" });
+        doc.text("Genomic-Rice-Prediction System", pageWidth - 14, 33, { align: "right" });
+
+        doc.setTextColor(0, 0, 0);
+        let yPos = 55;
+
+        // 2. SIMULATION CONFIGURATION
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text("Simulation Configuration", 14, yPos);
+        yPos += 6;
+
+        const configData = [
+            ['Coordinates', `${latitude}, ${longitude}`],
+            ['Sowing Month', new Date(0, parseInt(month) - 1).toLocaleString('default', { month: 'long' })],
+            ['Irrigation Status', irrigation ? "ON (Optimized Water)" : "OFF (Rainfed Only)"]
+        ];
+
+        autoTable(doc, {
+            startY: yPos,
+            body: configData,
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 2, textColor: [70, 70, 70] },
+            columnStyles: { 0: { fontStyle: 'bold' } },
+            margin: { left: 14, right: 14 }
+        });
+        
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+
+        // 3. MAP SNAPSHOT
+        const mapElement = document.getElementById('map-capture');
+        if (mapElement && showMap) {
+            try {
+                const canvas = await html2canvas(mapElement, { 
+                    useCORS: true, 
+                    logging: false,
+                    allowTaint: true 
+                });
+                const imgData = canvas.toDataURL('image/png');
+                
+                const imgWidth = 180;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                const displayHeight = Math.min(imgHeight, 80);
+                
+                doc.setDrawColor(220, 220, 220);
+                doc.rect(14, yPos, imgWidth + 2, displayHeight + 2);
+                doc.addImage(imgData, 'PNG', 15, yPos + 1, imgWidth, displayHeight);
+                yPos += displayHeight + 15;
+            } catch (e) {
+                console.error("Map capture failed", e);
+            }
+        }
+
+        // 4. ENVIRONMENTAL PROFILING
+        if (envData) {
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 41, 59);
+            doc.text("Environmental Profile", 14, yPos);
+            yPos += 5;
+
+            const tableData = [
+                ['Avg Temperature', `${envData.E_avg_temp} °C`, 'Daily Mean'],
+                ['Total Rainfall', `${envData.E_total_rain_mm} mm`, irrigation ? 'Artificial Target' : 'Natural 5y Avg'],
+                ['Soil pH', envData.E_soil_ph !== null ? envData.E_soil_ph : 'N/A', 'Level'],
+                ['Soil Nitrogen', envData.E_soil_nitrogen !== null ? `${envData.E_soil_nitrogen} g/kg` : 'N/A', 'Nutrient Content'],
+                ['Solar Radiation', `${envData.E_solar_radiation} MJ/m²`, 'Energy']
+            ];
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Parameter', 'Value', 'Context']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [16, 185, 129], textColor: 255, fontSize: 10 },
+                styles: { fontSize: 10, cellPadding: 4 },
+                margin: { left: 14, right: 14 }
+            });
+            
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+        // 5. CERTIFICATE OF VIABILITY
+        doc.addPage();
+        yPos = 20;
+
+        const isViable = results.length > 0 && !results[0].confidence.includes("Unsuitable");
+        
+        const color = isViable ? [16, 185, 129] : [220, 38, 38];
+        const bg = isViable ? [236, 253, 245] : [254, 242, 242];
+        
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.setFillColor(bg[0], bg[1], bg[2]);
+        doc.roundedRect(14, yPos, 182, 35, 3, 3, 'FD');
+        
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(color[0], color[1], color[2]);
+        doc.text(isViable ? "CERTIFICATE: VIABLE FOR PLANTING" : "CERTIFICATE: UNVIABLE ENVIRONMENT", 105, yPos + 12, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
+        const verdictText = isViable 
+            ? "Predicted Yield Days are within acceptable agricultural ranges for the selected genomic samples."
+            : "Environmental conditions (Rainfall, Temp, or Soil) do not meet the minimum requirements for rice cultivation.";
+        doc.text(verdictText, 105, yPos + 24, { align: "center" });
+        
+        yPos += 50;
+
+        // 6. GENOMIC PREDICTIONS
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0,0,0);
+        doc.text("Genomic Yield Predictions", 14, yPos);
+        yPos += 5;
+
+        const predData = results.map(r => [
+            r.sample_id,
+            r.confidence.includes("Unsuitable") ? "FAILED" : `${r.predicted_days} Days`,
+            r.confidence.includes("Unsuitable") 
+                ? r.confidence.replace("Unsuitable Environment:", "").substring(0, 60)
+                : r.confidence
+        ]);
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [['Sample ID', 'Est. Maturity', 'Status / Failure Reason']],
+            body: predData,
+            theme: 'striped',
+            headStyles: { fillColor: [51, 65, 85], halign: 'left' },
+            styles: { fontSize: 9, cellPadding: 3 },
+            margin: { left: 14, right: 14 }
+        });
+
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+        doc.save(`Agronomic_Analysis_${dateStr}_${timeStr}.pdf`);
     };
 
     return (
@@ -79,10 +307,49 @@ const Predict = () => {
 
                             {/* Location Section */}
                             <div className="space-y-4">
-                                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                                    <MapPin className="h-5 w-5 text-emerald-600" />
-                                    <h2 className="text-lg font-semibold text-slate-800">Location Context</h2>
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <MapPin className="h-5 w-5 text-emerald-600" />
+                                        <h2 className="text-lg font-semibold text-slate-800">Location Context</h2>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMap(!showMap)}
+                                        className="text-sm flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+                                    >
+                                        {showMap ? <X className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
+                                        {showMap ? 'Close Map' : 'Select on Map'}
+                                    </button>
                                 </div>
+
+                                {showMap && (
+                                    <div id="map-capture" className="h-[400px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-inner z-0 relative">
+                                        <MapContainer 
+                                            center={getMapCenter()} 
+                                            zoom={5} 
+                                            style={{ height: '100%', width: '100%' }}
+                                            className="z-0"
+                                        >
+                                            <TileLayer
+                                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                crossOrigin="anonymous" 
+                                            />
+                                            <LocationMarker 
+                                                position={
+                                                    (latitude && longitude && !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude)))
+                                                    ? { lat: parseFloat(latitude), lng: parseFloat(longitude) } 
+                                                    : null
+                                                }
+                                                setPosition={handleMapUpdate}
+                                            />
+                                        </MapContainer>
+                                        <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 border border-slate-200/50 pointer-events-none z-[1000]">
+                                            Click anywhere to set location
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700">Latitude</label>
@@ -222,20 +489,36 @@ const Predict = () => {
                 {results.length > 0 && (
                     <div ref={resultsRef} className="space-y-8 animate-fade-in-up">
                         <div className="hidden lg:block text-left h-[88px]"> {/* Spacer to align with title */}
-                            <div className="flex items-center gap-3 h-full pb-2">
-                                <div className="p-2 bg-emerald-100 rounded-lg">
-                                    <BarChart3 className="h-6 w-6 text-emerald-700" />
+                            <div className="flex items-center justify-between h-full pb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-emerald-100 rounded-lg">
+                                        <BarChart3 className="h-6 w-6 text-emerald-700" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-900">Analysis Results</h2>
+                                        <p className="text-slate-600">Predictions based on your inputs</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-2xl font-bold text-slate-900">Analysis Results</h2>
-                                    <p className="text-slate-600">Predictions based on your inputs</p>
-                                </div>
+                                <button
+                                    onClick={generatePDF}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700 hover:border-emerald-200 rounded-lg text-sm font-medium transition-all shadow-sm"
+                                >
+                                    <Download className="w-4 h-4" />
+                                    Download Report
+                                </button>
                             </div>
                         </div>
 
                         <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100 lg:h-[calc(100%-7rem)] flex flex-col">
-                            <div className="lg:hidden p-6 border-b border-gray-100 bg-emerald-50/50">
+                            <div className="lg:hidden p-6 border-b border-gray-100 bg-emerald-50/50 flex justify-between items-center">
                                 <h2 className="text-xl font-bold text-slate-800">Analysis Results</h2>
+                                <button
+                                    onClick={generatePDF}
+                                    className="p-2 text-slate-500 hover:text-emerald-600 transition-colors"
+                                    title="Download Report"
+                                >
+                                    <Download className="w-5 h-5" />
+                                </button>
                             </div>
                             <div className="overflow-x-auto custom-scrollbar flex-1">
                                 <table className="min-w-full divide-y divide-gray-200">

@@ -349,7 +349,11 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
         }
 
         fs.unlinkSync(req.file.path);
-        res.json(response.data);
+        
+        res.json({
+            predictions: response.data,
+            environmental_data: envData
+        });
 
     }
     catch (err) {
