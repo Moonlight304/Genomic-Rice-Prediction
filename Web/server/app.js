@@ -233,7 +233,7 @@ app.post('/forgot-password', async (req, res) => {
             from: `"AgriGenomics Security" <${process.env.EMAIL_USER}>`,
             to: user.email,
             subject: 'Reset your AgriGenomics Password',
-            text: `Reset your password here: ${resetLink}`, // Fallback for plain text clients
+            text: `Reset your password here: ${resetLink}`,
             html: htmlContent
         };
 
@@ -248,7 +248,6 @@ app.post('/forgot-password', async (req, res) => {
                 console.log(resetLink);
                 console.log("---------------------------------------------------\n");
                 
-                // Return success for dev workflow
                 return res.json({ message: "Development: Check server logs for link" });
             }
             res.json({ message: "Password reset email sent" });
@@ -312,25 +311,24 @@ app.post("/predict", authMiddleware, upload.single("file"), async (req, res) => 
         // --- 3. CALL PYTHON ENGINE ---
         console.log("[Node] Forwarding to Python Engine...");
         const response = await axios.post(
-            "http://localhost:8000/predict",
+            `${process.env.fastAPI_URL}/predict`,
             form,
             { headers: form.getHeaders() }
         );
 
         try {
-            // The python response is an array of predictions. 
-            // For history, we grab the first sample's result as a summary.
-            // const primaryResult = response.data[0];
-
             const newPrediction = {
                 user: req.user.id,
                 sample_name: req.file.originalname,
                 location: { lat, lon },
+                month: month,
+                irrigation: irrigation,
                 environmental_data: {
                     rainfall: envData.E_total_rain_mm,
                     temp: envData.E_avg_temp,
                     soil_ph: envData.E_soil_ph,
-                    soil_nitrogen: envData.E_soil_nitrogen
+                    soil_nitrogen: envData.E_soil_nitrogen,
+                    solar_radiation: envData.E_solar_radiation
                 },
                 results: response.data
             }

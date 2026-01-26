@@ -20,11 +20,20 @@ const PredictionSchema = new mongoose.Schema({
         lat: Number,
         lon: Number
     },
+    month: {
+        type: Number, 
+        default: 7
+    },
+    irrigation: {
+        type: Boolean,
+        default: false
+    },
     environmental_data: {
         rainfall: Number,
         temp: Number,
         soil_ph: Number,
-        soil_nitrogen: Number
+        soil_nitrogen: Number,
+        solar_radiation: Number
     },
 
     results: [

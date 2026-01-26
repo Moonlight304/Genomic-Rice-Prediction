@@ -1,7 +1,2 @@
-To get the appropriate ASSAY ID of the user's crop
-Can we mail IRRI for the location and date of the samples grown
-Other evaluation metrics
-
-
------- CURRENT -------
 README
+rainfall, temp, soil ph, nitrogen on predict page

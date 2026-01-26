@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import API from '../api/axios';
 import { Upload, MapPin, Loader2, AlertCircle, FileText, CheckCircle, BarChart3, Map as MapIcon, X, Download } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -18,6 +18,14 @@ let DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+const MapController = ({ onRegister }: { onRegister: (map: L.Map) => void }) => {
+    const map = useMap();
+    useEffect(() => {
+        onRegister(map);
+    }, [map, onRegister]);
+    return null;
+};
 
 interface EnvData {
     E_avg_temp: number;
@@ -36,12 +44,12 @@ interface Result {
     confidence: string;
 }
 
-const LocationMarker = ({ 
-    position, 
-    setPosition 
-}: { 
-    position: { lat: number; lng: number } | null, 
-    setPosition: (lat: number, lng: number) => void 
+const LocationMarker = ({
+    position,
+    setPosition
+}: {
+    position: { lat: number; lng: number } | null,
+    setPosition: (lat: number, lng: number) => void
 }) => {
     const map = useMapEvents({
         click(e) {
@@ -71,6 +79,7 @@ const Predict = () => {
     const [results, setResults] = useState<Result[]>([]);
     const [envData, setEnvData] = useState<EnvData | null>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<L.Map | null>(null);
 
     const handleMapUpdate = (lat: number, lng: number) => {
         setLatitude(lat.toFixed(4));
@@ -80,7 +89,7 @@ const Predict = () => {
     const getMapCenter = (): [number, number] => {
         const lat = parseFloat(latitude);
         const lng = parseFloat(longitude);
-        return (!isNaN(lat) && !isNaN(lng)) ? [lat, lng] : [20.5937, 78.9629]; // Default to India
+        return (!isNaN(lat) && !isNaN(lng)) ? [lat, lng] : [20.5937, 78.9629]; 
     };
 
     useEffect(() => {
@@ -136,17 +145,24 @@ const Predict = () => {
     const generatePDF = async () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        const timestamp = new Date().toLocaleString();
-        
+        const now = new Date();
+        const timestamp = now.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
         // 1. BRANDED HEADER
-        doc.setFillColor(16, 185, 129); // Emerald-600
+        doc.setFillColor(16, 185, 129);
         doc.rect(0, 0, pageWidth, 40, 'F');
-        
+
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(22);
-        doc.text("Agronomic Analysis Report", 14, 25); // Removed Project 14A
-        
+        doc.text("Agronomic Analysis Report", 14, 25); 
+
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.text(timestamp, pageWidth - 14, 25, { align: "right" });
@@ -163,44 +179,66 @@ const Predict = () => {
         yPos += 6;
 
         const configData = [
+            ['Analysis Date', timestamp],
+            ['Sample Name', file ? file.name : 'Uploaded Sample'],
             ['Coordinates', `${latitude}, ${longitude}`],
             ['Sowing Month', new Date(0, parseInt(month) - 1).toLocaleString('default', { month: 'long' })],
-            ['Irrigation Status', irrigation ? "ON (Optimized Water)" : "OFF (Rainfed Only)"]
+            ['Irrigation', irrigation ? "ON (Optimized Water)" : "OFF (Rainfed Only)"]
         ];
 
         autoTable(doc, {
             startY: yPos,
+            head: [['Parameter', 'Value']],
             body: configData,
             theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 2, textColor: [70, 70, 70] },
+            styles: { fontSize: 9, cellPadding: 2, textColor: [70, 70, 70] },
             columnStyles: { 0: { fontStyle: 'bold' } },
             margin: { left: 14, right: 14 }
         });
-        
+
         yPos = (doc as any).lastAutoTable.finalY + 10;
 
         // 3. MAP SNAPSHOT
+        const wasMapVisible = showMap;
+        if (!wasMapVisible) {
+            setShowMap(true);
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        if (mapInstance.current) {
+            const centerLat = parseFloat(latitude);
+            const centerLon = parseFloat(longitude);
+            if (!isNaN(centerLat) && !isNaN(centerLon)) {
+                mapInstance.current.setView([centerLat, centerLon], 10, { animate: false });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
         const mapElement = document.getElementById('map-capture');
-        if (mapElement && showMap) {
+        if (mapElement) {
             try {
-                const canvas = await html2canvas(mapElement, { 
-                    useCORS: true, 
+                const canvas = await html2canvas(mapElement, {
+                    useCORS: true,
                     logging: false,
-                    allowTaint: true 
+                    allowTaint: true
                 });
                 const imgData = canvas.toDataURL('image/png');
-                
+
                 const imgWidth = 180;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                const displayHeight = Math.min(imgHeight, 80);
-                
+                const displayHeight = Math.min(imgHeight, 60);
+
                 doc.setDrawColor(220, 220, 220);
                 doc.rect(14, yPos, imgWidth + 2, displayHeight + 2);
                 doc.addImage(imgData, 'PNG', 15, yPos + 1, imgWidth, displayHeight);
-                yPos += displayHeight + 15;
+                yPos += displayHeight + 10;
             } catch (e) {
                 console.error("Map capture failed", e);
             }
+        }
+
+        if (!wasMapVisible) {
+            setShowMap(false);
         }
 
         // 4. ENVIRONMENTAL PROFILING
@@ -228,7 +266,7 @@ const Predict = () => {
                 styles: { fontSize: 10, cellPadding: 4 },
                 margin: { left: 14, right: 14 }
             });
-            
+
             yPos = (doc as any).lastAutoTable.finalY + 15;
         }
 
@@ -237,40 +275,40 @@ const Predict = () => {
         yPos = 20;
 
         const isViable = results.length > 0 && !results[0].confidence.includes("Unsuitable");
-        
+
         const color = isViable ? [16, 185, 129] : [220, 38, 38];
         const bg = isViable ? [236, 253, 245] : [254, 242, 242];
-        
+
         doc.setDrawColor(color[0], color[1], color[2]);
         doc.setFillColor(bg[0], bg[1], bg[2]);
         doc.roundedRect(14, yPos, 182, 35, 3, 3, 'FD');
-        
+
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(color[0], color[1], color[2]);
         doc.text(isViable ? "CERTIFICATE: VIABLE FOR PLANTING" : "CERTIFICATE: UNVIABLE ENVIRONMENT", 105, yPos + 12, { align: "center" });
-        
+
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60, 60, 60);
-        const verdictText = isViable 
+        const verdictText = isViable
             ? "Predicted Yield Days are within acceptable agricultural ranges for the selected genomic samples."
             : "Environmental conditions (Rainfall, Temp, or Soil) do not meet the minimum requirements for rice cultivation.";
         doc.text(verdictText, 105, yPos + 24, { align: "center" });
-        
+
         yPos += 50;
 
         // 6. GENOMIC PREDICTIONS
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(0,0,0);
+        doc.setTextColor(0, 0, 0);
         doc.text("Genomic Yield Predictions", 14, yPos);
         yPos += 5;
 
         const predData = results.map(r => [
             r.sample_id,
             r.confidence.includes("Unsuitable") ? "FAILED" : `${r.predicted_days} Days`,
-            r.confidence.includes("Unsuitable") 
+            r.confidence.includes("Unsuitable")
                 ? r.confidence.replace("Unsuitable Environment:", "").substring(0, 60)
                 : r.confidence
         ]);
@@ -285,7 +323,6 @@ const Predict = () => {
             margin: { left: 14, right: 14 }
         });
 
-        const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
         const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
         doc.save(`Agronomic_Analysis_${dateStr}_${timeStr}.pdf`);
@@ -324,22 +361,23 @@ const Predict = () => {
 
                                 {showMap && (
                                     <div id="map-capture" className="h-[400px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-inner z-0 relative">
-                                        <MapContainer 
-                                            center={getMapCenter()} 
-                                            zoom={5} 
+                                        <MapContainer
+                                            center={getMapCenter()}
+                                            zoom={5}
                                             style={{ height: '100%', width: '100%' }}
                                             className="z-0"
                                         >
+                                            <MapController onRegister={(map) => { mapInstance.current = map; }} />
                                             <TileLayer
                                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                                crossOrigin="anonymous" 
+                                                crossOrigin="anonymous"
                                             />
-                                            <LocationMarker 
+                                            <LocationMarker
                                                 position={
                                                     (latitude && longitude && !isNaN(parseFloat(latitude)) && !isNaN(parseFloat(longitude)))
-                                                    ? { lat: parseFloat(latitude), lng: parseFloat(longitude) } 
-                                                    : null
+                                                        ? { lat: parseFloat(latitude), lng: parseFloat(longitude) }
+                                                        : null
                                                 }
                                                 setPosition={handleMapUpdate}
                                             />
@@ -409,7 +447,7 @@ const Predict = () => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-slate-700">Irrigation Management</label>
-                                        <div 
+                                        <div
                                             onClick={() => setIrrigation(!irrigation)}
                                             className={`flex items-center justify-between px-4 py-2.5 border rounded-xl cursor-pointer transition-all ${irrigation ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}
                                         >
@@ -423,7 +461,7 @@ const Predict = () => {
                                     </div>
                                 </div>
                                 <p className="text-xs text-slate-500">
-                                    {irrigation 
+                                    {irrigation
                                         ? "Simulating predicted yield with optimal water availability (1500mm)."
                                         : "Simulating yield based on natural historical rainfall patterns (Last 5 Years avg)."}
                                 </p>
@@ -532,8 +570,8 @@ const Predict = () => {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {results.map((result, idx) => {
                                             const isUnsuitable = result.confidence.includes("Unsuitable");
-                                            const failureReason = isUnsuitable 
-                                                ? result.confidence.replace("Unsuitable Environment:", "").trim() 
+                                            const failureReason = isUnsuitable
+                                                ? result.confidence.replace("Unsuitable Environment:", "").trim()
                                                 : "";
 
                                             return (
@@ -552,10 +590,10 @@ const Predict = () => {
                                                     </td>
                                                     <td className="px-6 py-6 card-zoom">
                                                         <div className={`inline-flex flex-col items-start px-4 py-3 rounded-xl border w-full max-w-sm transition-all ${isUnsuitable
-                                                                ? 'bg-red-50 text-red-800 border-red-100 shadow-sm shadow-red-100/50'
-                                                                : result.confidence === 'High Confidence'
-                                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                                                                    : 'bg-amber-50 text-amber-800 border-amber-100'
+                                                            ? 'bg-red-50 text-red-800 border-red-100 shadow-sm shadow-red-100/50'
+                                                            : result.confidence === 'High Confidence'
+                                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                                                                : 'bg-amber-50 text-amber-800 border-amber-100'
                                                             }`}>
                                                             {isUnsuitable ? (
                                                                 <>
