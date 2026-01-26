@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import API from '../api/axios';
-import { Upload, MapPin, Loader2, AlertCircle, FileText, CheckCircle, BarChart3, Map as MapIcon, X, Download } from 'lucide-react';
+import { Upload, MapPin, Loader2, AlertCircle, FileText, CheckCircle, BarChart3, Map as MapIcon, X, Download, CloudRain, Thermometer, Droplets, Beaker } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import jsPDF from 'jspdf';
@@ -558,6 +558,50 @@ const Predict = () => {
                                     <Download className="w-5 h-5" />
                                 </button>
                             </div>
+
+                            {envData && (
+                                <div className="p-4 sm:p-6 bg-slate-50/50 border-b border-slate-100 overflow-x-auto custom-scrollbar">
+                                    <div className="flex gap-4 min-w-max pb-2">
+                                        <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3 w-64 shrink-0">
+                                            <div className="bg-blue-50 p-2 rounded-lg shrink-0">
+                                                <CloudRain className="h-5 w-5 text-blue-600" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs text-slate-500 font-medium uppercase">Rainfall</p>
+                                                <p className="text-sm font-bold text-slate-900">{envData.E_total_rain_mm} mm</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3 w-64 shrink-0">
+                                            <div className="bg-orange-50 p-2 rounded-lg shrink-0">
+                                                <Thermometer className="h-5 w-5 text-orange-600" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs text-slate-500 font-medium uppercase">Temperature</p>
+                                                <p className="text-sm font-bold text-slate-900">{envData.E_avg_temp} °C</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3 w-64 shrink-0">
+                                            <div className="bg-purple-50 p-2 rounded-lg shrink-0">
+                                                <Beaker className="h-5 w-5 text-purple-600" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs text-slate-500 font-medium uppercase">Soil pH</p>
+                                                <p className="text-sm font-bold text-slate-900">{envData.E_soil_ph !== null ? envData.E_soil_ph : 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-200 shadow-sm flex items-center gap-3 w-64 shrink-0">
+                                            <div className="bg-emerald-50 p-2 rounded-lg shrink-0">
+                                                <Droplets className="h-5 w-5 text-emerald-600" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs text-slate-500 font-medium uppercase">Nitrogen</p>
+                                                <p className="text-sm font-bold text-slate-900">{envData.E_soil_nitrogen !== null ? `${envData.E_soil_nitrogen} g/kg` : 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="overflow-x-auto custom-scrollbar flex-1">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50 sticky top-0 z-10">

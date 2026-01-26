@@ -1,2 +1,1 @@
 README
-rainfall, temp, soil ph, nitrogen on predict page
