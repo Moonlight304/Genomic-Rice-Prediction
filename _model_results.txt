@@ -13,3 +13,6 @@
 13.	XGBoost (Manual CV)	G-only (Top 1,000)	======================= 0.6707	King of Single Models. Beat CatBoost & LGBM in a fair fight.
 14.	XGBoost + LightGBM	G-only (Top 1,000)	======================= 0.6747	The G-Only Champion. Averaging the two best models.
 15.	XGBoost + LightGBM	G + E (Top 1,000)	======================= 0.6755	GRAND CHAMPION. Robust, handles E-data, highest valid score.
+
+
+FINAL MODEL: model: model_xg_boost_elite_lightgbm_GE.py
